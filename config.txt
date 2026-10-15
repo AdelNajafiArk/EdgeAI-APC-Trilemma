@@ -1,0 +1,59 @@
+# ================================================================
+# CONFIGURATION (Windows + Quadro P2000)
+# ================================================================
+
+from dataclasses import dataclass, field
+from typing import Optional, Dict
+import os
+import torch
+
+
+@dataclass
+class Config:
+    """Master configuration for Windows 11 + Quadro P2000 (4 GB VRAM)."""
+    
+    # Reproducibility
+    seed: int = 42
+
+    # Paths — use local paths, NOT /content/
+    data_dir: str = "C:/Users/A.C/Desktop/Trilemma/data"
+    output_dir: str = "C:/Users/A.C/Desktop/Trilemma/results"
+
+    # Training — tuned for 4 GB VRAM
+    epochs: int = 30
+    batch_size: int = 64          # Reduced from 128 for 4 GB VRAM
+    lr: float = 1e-3
+    weight_decay: float = 1e-4
+    num_workers: int = 0          # IMPORTANT: 0 on Windows (no fork)
+
+    # Per-model DP epsilons
+    dp_epsilons: Dict[str, float] = field(default_factory=lambda: {
+        "Nano": 0.1,
+        "Micro": 0.5,
+        "Speed": 1.0,
+        "Balanced": 4.0,
+        "Accuracy": 20.0,
+    })
+    dp_delta: float = 1e-5
+    dp_max_grad_norm: float = 1.0
+    use_dp_training: bool = False
+
+    # Latency profiling — tuned for Windows
+    latency_warmup: int = 30
+    latency_iterations: int = 200
+
+    # Device
+    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Dataset
+    dataset: str = "pathmnist"
+    train_subset: Optional[int] = None
+
+    def __post_init__(self):
+        """Create required directories (Windows paths)."""
+        os.makedirs(self.data_dir, exist_ok=True)
+        os.makedirs(self.output_dir, exist_ok=True)
+
+    @property
+    def output_path(self) -> str:
+        return os.path.join(self.output_dir, f"{self.dataset}_seed{self.seed}")
